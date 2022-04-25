@@ -3,9 +3,9 @@
 #define SEMAPHORE2_NAME "/semaphoreH7"
 #define min(a,b) (((a)<(b))?(a):(b))
 
-
 int main(int argc, char **argv)
 {
+    remove(filename);
     arguments* args = create_arguments(argv);
     if (argc < 4)
     {
@@ -104,7 +104,6 @@ int main(int argc, char **argv)
         log_(UNUSED, HYDROGEN, atom->id, 0);
         free(atom);
     }
-    printf("END \n");
 
     semaphores_destroy(semaphores);
     free_arguments(args);

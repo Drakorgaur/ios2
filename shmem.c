@@ -36,7 +36,6 @@ void create_queue(element el, atom_queue* queue, int id, arguments *args) {
 shared_memory* create_shared_memory()
 {
     size_t size = sizeof(shared_memory);
-    printf("size: %zu\n", size);
     key_t key = ftok("shmem.c", 'c');
     int shmid = shmget(key, size, IPC_CREAT | 0666);
     if (shmid == -1)
