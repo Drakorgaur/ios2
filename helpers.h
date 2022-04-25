@@ -28,8 +28,8 @@ typedef struct atom {
     int      ready;
 } atom;
 
-typedef struct atom_queue {
-    int   size;
+typedef volatile struct atom_queue {
+    volatile int   size;
     int   shmid;
     atom* atoms;
 } atom_queue;

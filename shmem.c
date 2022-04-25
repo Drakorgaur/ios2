@@ -54,6 +54,8 @@ shared_memory* create_shared_memory()
 
     shm->size = 0;
     shm->shmid = shmid;
+    shm->OXYGEN_QUEUE.size = 0;
+    shm->HYDROGEN_QUEUE.size = 0;
     shm->ready[OXYGEN_READY] = false;
     shm->ready[HYDROGEN_READY] = false;
     shm->molecule_status[0] = 0;

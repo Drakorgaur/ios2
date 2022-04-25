@@ -42,18 +42,20 @@ int main(int argc, char **argv)
         exit(0);
     } else {
         sem_wait(semaphores->ready);
-        printf("all processes are ready\n");
-
         int expected = 0;
         if (args->NO > 0) {
             int NO_molecules_expected = args->NO;
             if (args->NH > 0) {
                 int NH_molecules_expected = args->NH / 2; // returns rounded to min (5.5 -> 5)
                 expected = min(NO_molecules_expected, NH_molecules_expected);
+            } else {
+                for (int i = 0; i < args->NO; i++) {
+                    printf("O %d: not enough H\n", memory->OXYGEN_QUEUE.atoms[i].id);
+                }
             }
         } else {
             for (int i = 0; i < args->NO; i++) {
-                printf("O %d: not enough H\n", memory->OXYGEN_QUEUE.atoms[i].id);
+                printf("H %d: not enough O\n", memory->OXYGEN_QUEUE.atoms[i].id);
             }
         }
 
@@ -92,13 +94,12 @@ int main(int argc, char **argv)
         while (wait(NULL) != -1);
     }
     while (wait(NULL) != -1);
-    for (int i = 0; i < memory->OXYGEN_QUEUE.size; i++) {
+    while (memory->OXYGEN_QUEUE.size) {
         atom* atom= pop_atom(&memory->OXYGEN_QUEUE);
         log_(UNUSED, OXYGEN, atom->id, 0);
         free(atom);
     }
-    printf("%d\n", memory->HYDROGEN_QUEUE.size);
-    for (int i = 0; i < memory->HYDROGEN_QUEUE.size; i++) {
+    while (memory->HYDROGEN_QUEUE.size) {
         atom* atom= pop_atom(&memory->HYDROGEN_QUEUE);
         log_(UNUSED, HYDROGEN, atom->id, 0);
         free(atom);
@@ -127,7 +128,6 @@ void common_part(arguments* args, sem_t* semaphore, sem_t* sem_ready, atom_queue
             exit(0);
         }
     }
-    create_atom(id, type);
     atom* atm = create_atom(id, type);
     log_(CREATED, type, id, 0);
     insert_atom(atm, queue);

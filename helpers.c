@@ -33,7 +33,6 @@ void insert_atom(atom* a, atom_queue* q)
 {
     q->atoms[q->size] = *a;
     q->size++;
-
 }
 
 atom* pop_atom(atom_queue* q)
