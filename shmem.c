@@ -52,6 +52,7 @@ shared_memory* create_shared_memory()
     *shm = (shared_memory){0};
 
     shm->size = 0;
+    shm->line = 0;
     shm->shmid = shmid;
     shm->OXYGEN_QUEUE.size = 0;
     shm->HYDROGEN_QUEUE.size = 0;

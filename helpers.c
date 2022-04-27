@@ -52,34 +52,37 @@ atom* pop_atom(atom_queue* q)
 }
 
 
-void log_(state S, element atom, int atom_id, int molecule_id)
+void log_(state S, element atom, int atom_id, int molecule_id, int* line_number, sem_t* liner)
 {
+//    sem_wait(liner);
+
+    *line_number = *line_number + 1;
     FILE* fp = fopen(filename, "a");
     switch (S) {
         case CREATED:
-            fprintf(fp, "%c %d: process started \n", atom, atom_id);
-            printf("%c %d: process started \n", atom, atom_id);
+            fprintf(fp, "%d: %c %d: started \n", *line_number, atom, atom_id);
+            printf("%d: %c %d: started \n", *line_number, atom, atom_id);
             break;
         case GO_QUEUE:
-            fprintf(fp, "%c %d: process going to queue \n", atom, atom_id);
-            printf("%c %d: going to queue \n", atom, atom_id);
+            fprintf(fp, "%d: %c %d: going to queue \n", *line_number, atom, atom_id);
+            printf("%d: %c %d: going to queue \n", *line_number, atom, atom_id);
             break;
         case IN_USE:
-            fprintf(fp, "%c %d: creating molecule %d \n", atom, atom_id, molecule_id);
-            printf("%c %d: creating molecule %d \n", atom, atom_id, molecule_id);
+            fprintf(fp, "%d: %c %d: creating molecule %d \n", *line_number, atom, atom_id, molecule_id);
+            printf("%d: %c %d: creating molecule %d \n", *line_number, atom, atom_id, molecule_id);
             break;
         case USED:
-            fprintf(fp, "%c %d: molecule %d created \n", atom, atom_id, molecule_id);
-            printf("%c %d: molecule %d created \n", atom, atom_id, molecule_id);
+            fprintf(fp, "%d: %c %d: molecule %d created \n", *line_number, atom, atom_id, molecule_id);
+            printf("%d: %c %d: molecule %d created \n", *line_number, atom, atom_id, molecule_id);
             break;
         case UNUSED:
             if (atom == 'H') {
-                fprintf(fp, "%c %d: not enough O or H \n", atom, atom_id);
-                printf("%c %d: not enough O or H \n", atom, atom_id);
+                fprintf(fp, "%d: %c %d: not enough O or H \n", *line_number, atom, atom_id);
+                printf("%d: %c %d: not enough O or H \n", *line_number, atom, atom_id);
             }
             else {
-                printf("%c %d: not enough H \n", atom, atom_id);
-                fprintf(fp, "%c %d: not enough H \n", atom, atom_id);
+                fprintf(fp, "%d: %c %d: not enough H \n", *line_number, atom, atom_id);
+                printf("%d: %c %d: not enough H \n", *line_number, atom, atom_id);
             }
             break;
         default:
@@ -87,4 +90,5 @@ void log_(state S, element atom, int atom_id, int molecule_id)
             break;
     }
     fclose(fp);
+    sem_post(liner);
 }

@@ -10,6 +10,7 @@ typedef struct semaphores {
     char *hydrogen_name;
     sem_t* hydrogen;
 
+    sem_t *logger;
     sem_t* mutex;
     sem_t* ready;
     sem_t* molecule_creation;
@@ -56,12 +57,20 @@ semaphores* semaphores_init(char* name1, char* name2)
         perror("sem_open");
         exit(1);
     }
+
+    if ((semaphore->logger = sem_open("logger", O_CREAT | O_EXCL, 0666, 0)) == SEM_FAILED)
+    {
+        perror("sem_open");
+        exit(1);
+    }
+
     sem_unlink(semaphore->oxygen_name);
     sem_unlink(semaphore->hydrogen_name);
     sem_unlink("mutex");
     sem_unlink("ready");
     sem_unlink("molecule_creation");
     sem_unlink("molecules_created");
+    sem_unlink("logger");
     return semaphore;
 }
 
@@ -72,5 +81,7 @@ void semaphores_destroy(semaphores* semaphores)
     sem_close(semaphores->mutex);
     sem_close(semaphores->ready);
     sem_close(semaphores->molecule_creation);
+    sem_close(semaphores->molecules_created);
+    sem_close(semaphores->logger);
     free(semaphores);
 }
