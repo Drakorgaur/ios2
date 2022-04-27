@@ -1,13 +1,14 @@
 CC=gcc
-CFLAGS=-std=gnu99 -Wall -Wextra -pedantic # removed -Werror
+CFLAGS=-std=gnu99 -Wall -Wextra -Werror -pedantic
 LFLAGS=-lpthread -lrt -lm
-BIN=project4
+BIN=proj2
 SOURCE=main.c
 
 main:
 	$(CC) $(CFLAGS) $(SOURCE) -o $(BIN) $(LFLAGS)
 
-	./$(BIN) 3 8 1000 100
+	./$(BIN) 2 2 100 100
+
 
 
 

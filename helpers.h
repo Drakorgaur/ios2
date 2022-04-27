@@ -20,16 +20,18 @@ typedef struct arguments {
     int NH;
     int TI;
     int TB;
+    int expected;
 } arguments;
 
 typedef struct atom {
-    int       id;
-    element   type;
-    int      ready;
+    int      id;
+    element  type;
+    bool ready;
 } atom;
 
 typedef volatile struct atom_queue {
-    volatile int   size;
+    volatile int size;
+    volatile int fake_size;
     int   shmid;
     atom* atoms;
 } atom_queue;
@@ -45,7 +47,7 @@ typedef struct shared_memory {
 
 
 
-arguments*  create_arguments(char** argv);
+arguments*  create_arguments();
 void        free_arguments(arguments* args);
 atom*       create_atom(int id, element type);
 void        insert_atom(atom* a, atom_queue* q);

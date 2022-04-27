@@ -7,10 +7,11 @@ const char* filename = "proj2.out";
 int read_arg(char* str)
 {
     char* end;
-    return (int) strtol (str, &end, 10);
+    int i =  (int) strtol (str, &end, 10);
+    return i;
 }
 
-arguments*  create_arguments(char** argv)
+arguments*  create_arguments()
 {
     arguments* args = (arguments*) malloc(sizeof(arguments));
 
@@ -35,6 +36,7 @@ void insert_atom(atom* a, atom_queue* q)
 {
     q->atoms[q->size] = *a;
     q->size++;
+    q->fake_size++;
 }
 
 atom* pop_atom(atom_queue* q)
@@ -76,7 +78,7 @@ void log_(state S, element atom, int atom_id, int molecule_id)
                 printf("%c %d: not enough O or H \n", atom, atom_id);
             }
             else {
-                printf("%c %d:  not enough H \n", atom, atom_id);
+                printf("%c %d: not enough H \n", atom, atom_id);
                 fprintf(fp, "%c %d: not enough H \n", atom, atom_id);
             }
             break;
