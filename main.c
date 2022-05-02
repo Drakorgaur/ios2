@@ -1,38 +1,159 @@
 #include "processes.c"
-#define SEMAPHORE1_NAME "/semaphoreO7"
-#define SEMAPHORE2_NAME "/semaphoreH7"
+#include <sys/wait.h>
 #define min(a,b) (((a)<(b))?(a):(b))
+
+void common_part(int id, arguments* args, semaphores* sems, shared_memory* shm, atom_queue* queue, element type)
+{
+    /**
+     * bool extra flag for the case when the process(es) is/are not gonna be used to create new molecule
+     * Steps:
+     *      1. Create atom attached to the process
+     *      2. Wait for the semaphore mutex that allows access to critical section (count how many atoms are created)
+     *      3. Create atom -> wait -> Queue
+     *      4. Create atom (see below)
+     */
+    bool extra = false;
+    atom* at = create_atom(id, type);
+    sem_wait(sems->mutex);
+
+    if ((type == HYDROGEN && shm->hydrogen_created >= args->expected * 2) || (type == OXYGEN && shm->oxygen_created >= args->expected))
+        extra = true;
+
+    type == OXYGEN ? shm->oxygen_created++ : shm->hydrogen_created++;
+
+    if (shm->oxygen_created >= args->NO && shm->hydrogen_created >= args->expected * 2) {
+        sem_post(sems->oxygen);
+        sem_post(sems->popper);
+    }
+    sem_post(sems->mutex);
+
+    sem_wait(sems->logger);
+    log_(CREATED, type, at->id, 0, &shm->line, sems->logger);
+    args->TB != 0 ? usleep(rand() % args->TI*1000) : usleep(0);
+
+    sem_wait(sems->logger);
+    insert_atom(at, queue);
+    log_(GO_QUEUE, type, at->id, 0, &shm->line, sems->logger);
+
+    if (extra)
+    {
+        /**
+         * wait for all molecules to be created and log that atom is unused
+         */
+        sem_wait(sems->popper);
+        atom *at2 = pop_atom(queue);
+        sem_post(sems->popper);
+        sem_wait(sems->molecules_created);
+        sem_wait(sems->logger);
+        log_(UNUSED, type, at2->id, 0, &shm->line, sems->logger);
+        free(at);
+        sem_post(sems->molecules_created);
+        exit(0);
+    }
+
+    // molecule creation part
+
+    if (type == OXYGEN)
+    {
+        sem_wait(sems->popper);
+        atom* at2 = pop_atom(&shm->OXYGEN_QUEUE);
+        sem_post(sems->popper);
+        /**
+         * wait for oxygen semaphore to start molecule creation process
+         * post 2 semaphores to allow 2 hydrogen processes
+         * synchronise with hydrogen processes
+         */
+        sem_wait(sems->oxygen);
+        shm->molecule_id++;
+
+        sem_wait(sems->logger);
+        log_(IN_USE, type, at2->id, shm->molecule_id, &shm->line, sems->logger);
+
+        sem_post(sems->hydrogen);
+        sem_post(sems->hydrogen);
+
+        args->TB != 0 ? usleep(rand() % args->TB*1000) : usleep(0);
+
+        sem_post(sems->molecule_creation);
+        sem_post(sems->molecule_creation);
+
+        sem_wait(sems->molecule_creating);
+        sem_wait(sems->molecule_creating);
+
+        sem_wait(sems->ready);
+        sem_wait(sems->ready);
+        sem_wait(sems->logger);
+        log_(USED, type, at2->id, shm->molecule_id, &shm->line, sems->logger);
+        sem_post(sems->oxygen);
+        if (shm->molecule_id == args->expected)
+        {
+            sem_post(sems->molecules_created);
+        }
+    }
+    else if (type == HYDROGEN)
+    {
+        sem_wait(sems->popper);
+        atom* at2 = pop_atom(&shm->HYDROGEN_QUEUE);
+        sem_post(sems->popper);
+
+        sem_wait(sems->hydrogen);
+        sem_wait(sems->logger);
+        log_(IN_USE, type, at2->id, shm->molecule_id, &shm->line, sems->logger);
+
+        sem_wait(sems->molecule_creation);
+
+        sem_post(sems->molecule_creating);
+
+        sem_wait(sems->logger);
+        log_(USED, type, at2->id, shm->molecule_id, &shm->line, sems->logger);
+        sem_post(sems->ready);
+        sem_post(sems->logger);
+    }
+    free(at);
+    exit(0);
+}
 
 int main(int argc, char **argv)
 {
+    /**
+     * function starts with removing proj2.out file if it exists
+     * read arguments and validate them
+     */
     remove(filename);
     arguments* args = create_arguments();
-    if (argc < 4)
+    if (argc != 5)
     {
-        printf("Usage: ./proj2 <number of OXYGEN> <number of HYDROGEN> <time to create atom> <time to create molecule>\n");
-
-        return 0;
+        fprintf( stderr, "Wrong arguments amount\n");
+        exit(1);
     }
     setbuf(stdout, NULL);
     args->NO = read_arg(argv[1]);
     args->NH = read_arg(argv[2]);
     args->TI = read_arg(argv[3]);
     args->TB = read_arg(argv[4]);
-    if (args->NO < 0 || args->NH < 0 || args->TI < 0 || args->TB < 0)
+    if (args->NO <= 0 || args->NH <= 0 || args->TI < 0 || args->TB < 0)
     {
-        printf("Usage: ./proj2 <number of OXYGEN> <number of HYDROGEN> <time to create atom> <time to create molecule>\n"
-               "All arguments must be positive integers\n");
-        return 0;
+        fprintf( stderr, "Arguments should be positive\n");
+        exit(1);
+    }
+    if (args->TI > 1000 || args->TB > 1000)
+    {
+        fprintf( stderr, "Arguments should be less than 1000\n");
+        exit(1);
     }
 
-    semaphores* semaphores = semaphores_init(SEMAPHORE1_NAME, SEMAPHORE2_NAME);
+    semaphores* semaphores = semaphores_init();
+    /**
+     * opens mutex and logger semaphores
+     */
+    sem_post(semaphores->mutex);
     sem_post(semaphores->logger);
     if (args->NO > 0) {
         int NO_molecules_expected = args->NO;
         if (args->NH > 1) {
             int NH_molecules_expected = args->NH / 2; // returns rounded to min (5.5 -> 5)
             args->expected = min(NO_molecules_expected, NH_molecules_expected);
-        } else {
+        } else {    // post that we can release atoms because will not create any molecule
             sem_post(semaphores->molecules_created);
         }
     } else {
@@ -40,70 +161,26 @@ int main(int argc, char **argv)
     }
     shared_memory* memory = create_shared_memory();
     create_queue(OXYGEN, &memory->OXYGEN_QUEUE, 1, args);
-    create_queue(HYDROGEN, & memory->HYDROGEN_QUEUE, 2, args);
+    create_queue(HYDROGEN, &memory->HYDROGEN_QUEUE, 2, args);
 
-    if (fork() == 0) {
-        if (fork() == 0) {
-
-            common_part(args, semaphores->molecules_created, semaphores->ready,
-                        &memory->HYDROGEN_QUEUE, HYDROGEN, memory->ready, &memory->line, semaphores->logger);
-
-            exit(0);
-
-        } else {
-            common_part(args, semaphores->molecules_created, semaphores->ready,
-                        &memory->OXYGEN_QUEUE, OXYGEN, memory->ready, &memory->line, semaphores->logger);
-
-        }
-        while (wait(NULL) != -1);
-
-
-        exit(0);
-    } else {
-        sem_wait(semaphores->ready);
-        sem_post(semaphores->molecule_creation);
-
-        for (int id = 1; id <= args->expected; id++) {
-            int pid;
-            if (fork_processes(2, &pid) == 0) {
-                atom* H1 = pop_atom(&memory->HYDROGEN_QUEUE);
-                while (H1->ready);
-                sem_wait(semaphores->logger);
-                log_(IN_USE, HYDROGEN, H1->id, id, &memory->line, semaphores->logger);
-
-                memory->molecule_status[pid] = 1;
-                while (!memory->molecule_status[0]) ;
-                while (!memory->molecule_status[(pid % 2) + 1]);
-                usleep(rand() % args->TB);
-                sem_wait(semaphores->logger);
-                log_(USED, HYDROGEN, H1->id, id, &memory->line, semaphores->logger);
-
-                free(H1);
-                exit(0);
-            } else {
-                atom* O = pop_atom(&memory->OXYGEN_QUEUE);
-                while (O->ready);
-                sem_wait(semaphores->logger);
-                log_(IN_USE, OXYGEN, O->id, id, &memory->line, semaphores->logger);
-
-                memory->molecule_status[0] = 1;
-                while (!memory->molecule_status[1]) ;
-                while (!memory->molecule_status[2]) ;
-                usleep(rand() % args->TB);
-                sem_wait(semaphores->logger);
-                log_(USED, OXYGEN, O->id, id, &memory->line, semaphores->logger);
-
-                free(O);
-                wait(NULL);
-
-            }
-            memory->molecule_status[0] = 0;
-            memory->molecule_status[1] = 0;
-            memory->molecule_status[2] = 0;
-        }
+    /**
+     * creates NH + NO processes and send them to common part for all processes
+     */
+    int id_h = 0, id_o = 0;
+    if (fork_processes(args->NH, &id_h) == 0) {
+        common_part(id_h, args, semaphores, memory, &memory->HYDROGEN_QUEUE, HYDROGEN);
     }
-    sem_post(semaphores->molecules_created);
+    if (fork_processes(args->NO, &id_o) == 0) {
+        common_part(id_o, args, semaphores, memory, &memory->OXYGEN_QUEUE, OXYGEN);
+    }
 
+    /**
+     * waits for all processes to finish
+     * close semaphores
+     * empty shared memory
+     * free memory
+     * and end the program
+     */
     while (wait(NULL) != -1);
     semaphores_destroy(semaphores);
     free_arguments(args);
@@ -111,52 +188,4 @@ int main(int argc, char **argv)
     delete_queue(&memory->HYDROGEN_QUEUE);
     delete_shared_memory(memory);
     return 0;
-}
-
-void common_part(arguments* args, sem_t* molecules_created, sem_t* sem_ready, atom_queue* queue, element type,
-                 bool* ready, int* line, sem_t* sem_line)
-{
-    int id = 0;
-    if (type == OXYGEN) {
-        if (fork_processes(args->NO, &id) != 0) {
-            while (wait(NULL) > 0);
-            exit(0);
-        }
-    } else if (type == HYDROGEN) {
-        if (fork_processes(args->NH, &id) != 0) {
-            while (wait(NULL) > 0);
-            exit(0);
-        }
-    }
-    atom* atm = create_atom(id, type);
-
-    insert_atom(atm, queue);
-    int actual = type == OXYGEN ? args->expected : args->expected * 2;
-    if ( queue->fake_size > actual ) {
-        sem_wait(molecules_created);
-        sem_wait(sem_line);
-        log_(UNUSED, type, atm->id, 0, line, sem_line);
-        free(atm);
-        sem_post(molecules_created);
-        sem_post(sem_ready);
-        exit(0);
-    }
-    sem_wait(sem_line);
-    log_(CREATED, type, id, 0, line, sem_line);
-    if (type == OXYGEN) {
-        if (queue->fake_size >= args->expected) {
-            ready[OXYGEN_READY] = true;
-        }
-    } else if (type == HYDROGEN) {
-        if (queue->fake_size >= args->expected*2) {
-            ready[HYDROGEN_READY] = true;
-        }
-    }
-    if (ready[OXYGEN_READY] && ready[HYDROGEN_READY]) {
-        sem_post(sem_ready);
-    }
-    usleep(rand() % args->TI);
-    sem_wait(sem_line);
-    log_(GO_QUEUE, type, id, 0, line, sem_line);
-    atm->ready = true;
 }

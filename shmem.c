@@ -5,13 +5,13 @@
 #include <unistd.h>
 #include "helpers.c"
 
-/* MAP for check processes status
- * look 63 lines in main.c
- */
 #define OXYGEN_READY 0
 #define HYDROGEN_READY 1
 
 void create_queue(element el, atom_queue* queue, int id, arguments *args) {
+    /**
+     * Creates a queue for the given element in shared memory.
+     */
     srand(id);
 
     if (el == 'O') {
@@ -35,6 +35,9 @@ void create_queue(element el, atom_queue* queue, int id, arguments *args) {
 
 shared_memory* create_shared_memory()
 {
+    /**
+     * Creates shared memory for Oxygen and Hydrogen processes.
+     */
     size_t size = sizeof(shared_memory);
     key_t key = ftok("shmem.c", 'c');
     int shmid = shmget(key, size, IPC_CREAT | 0666);
@@ -51,11 +54,15 @@ shared_memory* create_shared_memory()
     }
     *shm = (shared_memory){0};
 
-    shm->size = 0;
     shm->line = 0;
     shm->shmid = shmid;
+    shm->molecule_id = 0;
+    shm->oxygen_created = 0;
+    shm->hydrogen_created = 0;
     shm->OXYGEN_QUEUE.size = 0;
+    shm->OXYGEN_QUEUE.fake_size = 0;
     shm->HYDROGEN_QUEUE.size = 0;
+    shm->HYDROGEN_QUEUE.fake_size = 0;
     shm->ready[OXYGEN_READY] = false;
     shm->ready[HYDROGEN_READY] = false;
     shm->molecule_status[0] = 0;
@@ -66,6 +73,9 @@ shared_memory* create_shared_memory()
 
 void delete_shared_memory(shared_memory *shared_memory)
 {
+    /**
+     * Free shared memory by saved shmid.
+     */
     int id = shared_memory->shmid;
     shmdt(shared_memory);
     if (shmctl(id, IPC_RMID, NULL) == -1)
@@ -77,6 +87,9 @@ void delete_shared_memory(shared_memory *shared_memory)
 
 void delete_queue(atom_queue* queue)
 {
+    /**
+     * Free queue by saved shmid.
+     */
     shmctl(queue->shmid, IPC_RMID, NULL);
     shmdt(queue->atoms);
 }

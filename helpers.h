@@ -4,10 +4,12 @@
 typedef enum element {
     OXYGEN='O',   // 79
     HYDROGEN='H', // 72
-
 } element;
 
 typedef enum state {
+    /**
+     * enum used to provide logger information about current state of the processes
+     */
     CREATED,
     GO_QUEUE,
     IN_USE,
@@ -26,7 +28,7 @@ typedef struct arguments {
 typedef struct atom {
     int      id;
     element  type;
-    bool ready;
+    bool     active;
 } atom;
 
 typedef volatile struct atom_queue {
@@ -38,8 +40,10 @@ typedef volatile struct atom_queue {
 
 typedef struct shared_memory {
     int   shmid;
-    int   size;
     int   line;
+    int   molecule_id;
+    int   oxygen_created;
+    int   hydrogen_created;
     atom_queue OXYGEN_QUEUE;
     atom_queue HYDROGEN_QUEUE;
     bool  ready[2];
@@ -49,8 +53,5 @@ typedef struct shared_memory {
 arguments*  create_arguments();
 void        free_arguments(arguments* args);
 atom*       create_atom(int id, element type);
+atom*       pop_atom(atom_queue* queue);
 void        insert_atom(atom* a, atom_queue* q);
-void        free_atom(atom* a);
-void        free_atom_queue(atom_queue* q);
-void        common_part(arguments* args, sem_t* semaphore, sem_t* ,atom_queue* queue, element type, bool* ready,
-                        int* line, sem_t* sem_line);
